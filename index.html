@@ -2721,7 +2721,7 @@ document.addEventListener('click',function(ev){
       if (i >= people.length) {
         btn.innerHTML = label0; btn.disabled = false;
         window.__lastBooking = done;
-        goTo(8); addCardLink(done);
+        goTo(8); addCardLink(done); setCalendarLinks(done);
         return;
       }
       var p = people[i], info = personInfo(p);
@@ -2729,7 +2729,7 @@ document.addEventListener('click',function(ev){
       DB.rpc('site_book', { p_salon: SALON, p_date: p.date || ST.date, p_time: p.slot, p_name: nom, p_phone: tel, p_email: mail,
         p_label: info.label, p_details: info.details, p_estimated_cents: info.cents, p_duration: info.dur }).then(function (r) {
         var d = r && r.data;
-        if (d && d.ok) { done.push({ slot: p.slot, card: d.card }); i++; next(); return; }
+        if (d && d.ok) { done.push({ slot: p.slot, card: d.card, date: p.date || ST.date, dur: info.dur, label: info.label }); i++; next(); return; }
         btn.innerHTML = label0; btn.disabled = false;
         var e = (d && d.error) || (r && r.error ? 'reseau' : 'inconnu');
         var already = done.length ? ' Les ' + done.length + ' premier(s) rendez-vous sont bien enregistrés.' : '';
@@ -2750,6 +2750,45 @@ document.addEventListener('click',function(ev){
     }
     next();
   };
+
+  // Boutons « Ajouter à mon agenda » (Google Agenda + iPhone/Android via fichier agenda)
+  function stamp(date, time, addMin) {
+    var p = date.split('-').map(Number), t = time.split(':').map(Number);
+    var d = new Date(Date.UTC(p[0], p[1] - 1, p[2], t[0], t[1] + (addMin || 0)));
+    return d.getUTCFullYear() + pad(d.getUTCMonth() + 1) + pad(d.getUTCDate()) + 'T' + pad(d.getUTCHours()) + pad(d.getUTCMinutes()) + '00';
+  }
+  var ADDRESS = 'PHENO&CO Barbershop, 18 rue d\'Alger, 34000 Montpellier';
+  function setCalendarLinks(done) {
+    if (!done.length) return;
+    var links = document.querySelectorAll('#s8 .cal-add-btns .cal-add-btn');
+    if (links.length < 2) return;
+    var first = done[0], last = done[done.length - 1];
+    var title = 'Rendez-vous PHENO&CO Barbershop';
+    var details = done.map(function (x) { return x.slot + ' : ' + x.label; }).join('\n') + '\n\nUn empêchement ? Préviens-nous au 07 69 43 26 05.';
+    var g = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+      + '&text=' + encodeURIComponent(title)
+      + '&dates=' + stamp(first.date, first.slot, 0) + '/' + stamp(last.date, last.slot, last.dur || 30)
+      + '&ctz=Europe%2FParis'
+      + '&details=' + encodeURIComponent(details)
+      + '&location=' + encodeURIComponent(ADDRESS);
+    links[0].href = g; links[0].target = '_blank'; links[0].rel = 'noopener';
+    links[0].textContent = 'Ajouter à Google Agenda';
+    var esc = function (v) { return String(v).replace(/[\\;,]/g, function (c) { return '\\' + c; }).replace(/\n/g, '\\n'); };
+    var ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//PHENO&CO//Reservation//FR', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH'];
+    done.forEach(function (x, k) {
+      ics.push('BEGIN:VEVENT', 'UID:' + (x.card || 'pnc') + '-' + x.date + '-' + x.slot.replace(':', '') + '-' + k + '@phenoandco',
+        'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z',
+        'DTSTART;TZID=Europe/Paris:' + stamp(x.date, x.slot, 0), 'DTEND;TZID=Europe/Paris:' + stamp(x.date, x.slot, x.dur || 30),
+        'SUMMARY:' + esc(title), 'DESCRIPTION:' + esc(x.label + '\nUn empêchement ? Préviens-nous au 07 69 43 26 05.'),
+        'LOCATION:' + esc(ADDRESS),
+        'BEGIN:VALARM', 'TRIGGER:-PT2H', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc(title), 'END:VALARM', 'END:VEVENT');
+    });
+    ics.push('END:VCALENDAR');
+    links[1].href = 'data:text/calendar;charset=utf-8,' + encodeURIComponent(ics.join('\r\n'));
+    links[1].setAttribute('download', 'rendez-vous-phenoandco.ics');
+    links[1].removeAttribute('target');
+    links[1].textContent = 'Ajouter à mon agenda (iPhone, Outlook…)';
+  }
 
   function addCardLink(done) {
     if (!done.length || !done[0].card) return;
