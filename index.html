@@ -2616,6 +2616,8 @@ document.addEventListener('click',function(ev){
     if (sl < h[0] || sl > h[1]) return false;
     if (AV.pause && AV.pause.length === 2 && sl >= AV.pause[0] && sl < AV.pause[1]) return false;
     if (ds < AV.today || (ds === AV.today && sl <= AV.now)) return false;
+    // Jour même : fermé sauf si le salon l'a ouvert le matin, et jamais après le dernier créneau autorisé
+    if (ds === AV.today && (!AV.same_day_open || sl > (AV.same_day_last || '16:30'))) return false;
     var cs = covering(ds);
     for (var i = 0; i < cs.length; i++) {
       if (!cs[i].tf) return false;
@@ -2632,7 +2634,7 @@ document.addEventListener('click',function(ev){
 
   window.loadAvailability = function () {
     if (!DB) return Promise.resolve();
-    var from = new Date(), to = new Date(); to.setDate(to.getDate() + 120);
+    var from = new Date(), to = new Date(); to.setDate(to.getDate() + 190);
     return DB.rpc('site_availability', { p_salon: SALON, p_from: ymd(from), p_to: ymd(to) }).then(function (r) {
       if (r && r.data && r.data.ok) {
         AV = r.data;
@@ -2737,6 +2739,7 @@ document.addEventListener('click',function(ev){
         var msg = {
           complet: 'Le créneau de ' + p.slot + ' vient d’être pris.' + already + ' <a href="#" onclick="goTo(6);return false" style="color:#C9A84C">Choisir un autre horaire</a>.',
           ferme: 'Le salon est fermé sur ce créneau.' + already + ' <a href="#" onclick="goTo(6);return false" style="color:#C9A84C">Choisir un autre horaire</a>.',
+          jour_meme: 'Les réservations pour aujourd’hui sont fermées. Choisis un autre jour. <a href="#" onclick="goTo(6);return false" style="color:#C9A84C">Choisir un autre jour</a>.',
           passe: 'Ce créneau est déjà passé. <a href="#" onclick="goTo(6);return false" style="color:#C9A84C">Choisir un autre horaire</a>.',
           telephone: 'Le numéro de téléphone ne semble pas valide. Vérifie-le (ex. 06 12 34 56 78).',
           nom: 'Indique ton nom.',
