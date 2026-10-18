@@ -2690,9 +2690,10 @@ document.addEventListener('click',function(ev){
       var o = findOpt(p.opts[k]);
       if (o) { opts.push(o.label); price += o.price || 0; dur += o.dur || 0; }
     }
+    var baseLabel = label;
     if (opts.length) label += ' + ' + opts.join(' + ');
     var cats = { homme: 'Homme', femme: 'Femme', enfant: 'Enfant -15 ans' };
-    return { label: label, cents: Math.round(price * 100), dur: dur,
+    return { label: label, base: baseLabel, opts: opts, cents: Math.round(price * 100), dur: dur,
       details: { categorie: cats[p.cat] || p.cat || '', longueur: p.lon || '', objectif: p.obj || '', options: opts } };
   }
 
@@ -2729,7 +2730,7 @@ document.addEventListener('click',function(ev){
       DB.rpc('site_book', { p_salon: SALON, p_date: p.date || ST.date, p_time: p.slot, p_name: nom, p_phone: tel, p_email: mail,
         p_label: info.label, p_details: info.details, p_estimated_cents: info.cents, p_duration: info.dur }).then(function (r) {
         var d = r && r.data;
-        if (d && d.ok) { done.push({ slot: p.slot, card: d.card, date: p.date || ST.date, dur: info.dur, label: info.label }); i++; next(); return; }
+        if (d && d.ok) { done.push({ slot: p.slot, card: d.card, date: p.date || ST.date, dur: info.dur, label: info.label, base: info.base, opts: info.opts, cents: info.cents, name: nom }); i++; next(); return; }
         btn.innerHTML = label0; btn.disabled = false;
         var e = (d && d.error) || (r && r.error ? 'reseau' : 'inconnu');
         var already = done.length ? ' Les ' + done.length + ' premier(s) rendez-vous sont bien enregistrés.' : '';
@@ -2763,8 +2764,17 @@ document.addEventListener('click',function(ev){
     var links = document.querySelectorAll('#s8 .cal-add-btns .cal-add-btn');
     if (links.length < 2) return;
     var first = done[0], last = done[done.length - 1];
-    var title = 'Rendez-vous PHENO&CO Barbershop';
-    var details = done.map(function (x) { return x.slot + ' : ' + x.label; }).join('\n') + '\n\nUn empêchement ? Préviens-nous au 07 69 43 26 05.';
+    var who = (first.name || '').trim();
+    var title = (who ? who + ' - ' : '') + first.base + (done.length > 1 ? ' (+' + (done.length - 1) + ')' : '') + ' - PHENO&CO Barbershop';
+    function lines(x) {
+      return ['Prénom : ' + (x.name || ''), 'Prestation : ' + x.base, 'Heure : ' + x.slot,
+        'Options : ' + (x.opts && x.opts.length ? x.opts.join(', ') : 'aucune'),
+        'Prix estimé : ' + (x.cents ? (x.cents / 100).toString().replace('.', ',') + ' €' : 'confirmé au salon')].join('\n');
+    }
+    function footer() {
+      return 'Salon : PHENO&CO Barbershop\nAdresse : 18 rue d\'Alger, 34000 Montpellier\nTéléphone du salon : 07 69 43 26 05\n\nUn empêchement ou un retard ? Préviens-nous au 07 69 43 26 05.';
+    }
+    var details = done.map(lines).join('\n\n') + '\n\n' + footer();
     var g = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
       + '&text=' + encodeURIComponent(title)
       + '&dates=' + stamp(first.date, first.slot, 0) + '/' + stamp(last.date, last.slot, last.dur || 30)
@@ -2779,7 +2789,7 @@ document.addEventListener('click',function(ev){
       ics.push('BEGIN:VEVENT', 'UID:' + (x.card || 'pnc') + '-' + x.date + '-' + x.slot.replace(':', '') + '-' + k + '@phenoandco',
         'DTSTAMP:' + new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z',
         'DTSTART;TZID=Europe/Paris:' + stamp(x.date, x.slot, 0), 'DTEND;TZID=Europe/Paris:' + stamp(x.date, x.slot, x.dur || 30),
-        'SUMMARY:' + esc(title), 'DESCRIPTION:' + esc(x.label + '\nUn empêchement ? Préviens-nous au 07 69 43 26 05.'),
+        'SUMMARY:' + esc((x.name ? x.name.trim() + ' - ' : '') + x.base + ' - PHENO&CO Barbershop'), 'DESCRIPTION:' + esc(lines(x) + '\n\n' + footer()),
         'LOCATION:' + esc(ADDRESS),
         'BEGIN:VALARM', 'TRIGGER:-PT2H', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc(title), 'END:VALARM', 'END:VEVENT');
     });
