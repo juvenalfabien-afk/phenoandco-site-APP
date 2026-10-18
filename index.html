@@ -1161,7 +1161,7 @@ html, body {
   <div class="fg"><label class="flbl">Adresse e-mail</label><input class="finput" type="email" id="fe" placeholder="exemple@mail.com" oninput="chkF()"></div>
 </div></div>
 <div class="sticky"><div class="sticky-in">
-  <button class="btn-next" id="next7" disabled onclick="goTo(8)">Confirmer ma reservation &#8594;</button>
+  <button class="btn-next" id="next7" disabled onclick="submitBooking()">Confirmer ma reservation &#8594;</button>
   <button class="btn-out" style="width:100%;margin-top:.5rem" onclick="goTo(5)">Modifier ma reservation</button>
   <div style="text-align:center;margin-top:.75rem">
     <button onclick="demanderAnnulation()" style="background:none;border:none;color:rgba(240,235,225,.35);font-size:.78rem;text-decoration:underline;cursor:pointer;letter-spacing:.02em">Annuler</button>
@@ -2593,5 +2593,180 @@ document.addEventListener('click',function(ev){
   });
 })();
 </script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+// ── RÉSERVATIONS RÉELLES (base Pheno & Co) ──
+// Les créneaux affichés viennent du vrai planning (horaires, pause, fermetures, places prises)
+// et « Confirmer ma réservation » enregistre le rendez-vous dans la base.
+(function () {
+  var SALON = 'phenoandco';
+  var DB = null, AV = null, CARD_URL = 'https://phenoandcofidelite.netlify.app/';
+  try { DB = window.supabase.createClient('https://ebqxrrnezngpvewvlupr.supabase.co', 'sb_publishable_atOLxKckdSSkyMh8wu8R5A__-7ICqN_', { auth: { persistSession: false } }); } catch (e) { DB = null; }
+
+  function ymd(d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); }
+  function covering(ds) {
+    var out = [];
+    if (!AV) return out;
+    for (var i = 0; i < AV.closed.length; i++) { var c = AV.closed[i]; if (ds >= c.from && ds <= c.to) out.push(c); }
+    return out;
+  }
+  function slotAllowed(ds, sl) {
+    if (!AV) return true;
+    var h = AV.open[ds]; if (!h) return false;
+    if (sl < h[0] || sl > h[1]) return false;
+    if (AV.pause && AV.pause.length === 2 && sl >= AV.pause[0] && sl < AV.pause[1]) return false;
+    if (ds < AV.today || (ds === AV.today && sl <= AV.now)) return false;
+    var cs = covering(ds);
+    for (var i = 0; i < cs.length; i++) {
+      if (!cs[i].tf) return false;
+      if (sl >= cs[i].tf && sl < (cs[i].tt || '23:59')) return false;
+    }
+    return true;
+  }
+  function freeCount(ds, sl) { return (AV ? AV.capacity : 2) - ((AV && AV.taken[ds + ' ' + sl]) || 0); }
+  function dayBookable(ds) {
+    if (!AV) return true;
+    for (var i = 0; i < SLOTS.length; i++) if (slotAllowed(ds, SLOTS[i]) && freeCount(ds, SLOTS[i]) > 0) return true;
+    return false;
+  }
+
+  window.loadAvailability = function () {
+    if (!DB) return Promise.resolve();
+    var from = new Date(), to = new Date(); to.setDate(to.getDate() + 120);
+    return DB.rpc('site_availability', { p_salon: SALON, p_from: ymd(from), p_to: ymd(to) }).then(function (r) {
+      if (r && r.data && r.data.ok) {
+        AV = r.data;
+        if (document.getElementById('cal-grid') && document.getElementById('cal-grid').innerHTML) {
+          var keepDate = ST.date; renderCal();
+          if (keepDate && document.getElementById('slots-wrap').style.display === 'block') renderSlots(keepDate);
+        }
+      }
+    }, function () {});
+  };
+
+  // Calendrier : jours fermés ou complets grisés
+  var _renderCal = renderCal;
+  renderCal = function () {
+    _renderCal.apply(this, arguments);
+    if (!AV) return;
+    var cells = document.querySelectorAll('#cal-grid .cd[data-ds]');
+    for (var i = 0; i < cells.length; i++) {
+      var ds = cells[i].getAttribute('data-ds');
+      if (!dayBookable(ds)) { cells[i].className = 'cd off'; cells[i].removeAttribute('onclick'); cells[i].removeAttribute('data-ds'); }
+    }
+  };
+
+  // Créneaux : vrais horaires et vraies places restantes
+  var _renderSlots = renderSlots;
+  renderSlots = function (ds) {
+    if (!AV) return _renderSlots(ds);
+    var groupeTaken = {};
+    for (var g = 0; g < ST.groupe.length; g++) {
+      if (g === ST.groupeIndex) continue;
+      var gsl = ST.groupe[g].slot; if (gsl) groupeTaken[gsl] = (groupeTaken[gsl] || 0) + 1;
+    }
+    var h = '', any = false;
+    for (var i = 0; i < SLOTS.length; i++) {
+      var sl = SLOTS[i];
+      if (!slotAllowed(ds, sl)) continue;
+      any = true;
+      var free = freeCount(ds, sl) - (groupeTaken[sl] || 0);
+      var cls = 'slot' + (free <= 0 ? ' full' : '');
+      var ev = free > 0 ? ' data-sl="' + sl + '" onclick="pickSlotEl(this)"' : '';
+      h += '<div class="' + cls + '"' + ev + '>' + sl + '</div>';
+    }
+    if (!any) h = '<div style="grid-column:1/-1;color:rgba(240,235,225,.6);font-size:.9rem">Plus de créneau ce jour-là. Choisis une autre date.</div>';
+    document.getElementById('slots-grid').innerHTML = h;
+    document.getElementById('slots-wrap').style.display = 'block';
+  };
+
+  function personInfo(p) {
+    var svc = findSvc2(p.svc, p.cat), deg = findDeg(p.deg), base = deg || svc;
+    var label = base ? base.label : 'Prestation';
+    var price = base && typeof base.price === 'number' ? base.price : 0;
+    var dur = base && base.dur ? base.dur : 30;
+    var opts = [];
+    for (var k = 0; k < (p.opts || []).length; k++) {
+      var o = findOpt(p.opts[k]);
+      if (o) { opts.push(o.label); price += o.price || 0; dur += o.dur || 0; }
+    }
+    if (opts.length) label += ' + ' + opts.join(' + ');
+    var cats = { homme: 'Homme', femme: 'Femme', enfant: 'Enfant -15 ans' };
+    return { label: label, cents: Math.round(price * 100), dur: dur,
+      details: { categorie: cats[p.cat] || p.cat || '', longueur: p.lon || '', objectif: p.obj || '', options: opts } };
+  }
+
+  function showErr(html) {
+    var el = document.getElementById('book-err');
+    if (!el) {
+      el = document.createElement('div'); el.id = 'book-err';
+      el.style.cssText = 'margin:.8rem 0 0;padding:.8rem 1rem;border-radius:12px;background:rgba(220,80,60,.12);border:1px solid rgba(220,80,60,.45);color:#F0EBE1;font-size:.9rem;line-height:1.5';
+      var b = document.getElementById('next7'); b.parentNode.insertBefore(el, b.nextSibling);
+    }
+    el.innerHTML = html; el.style.display = html ? 'block' : 'none';
+  }
+
+  window.submitBooking = function () {
+    var btn = document.getElementById('next7');
+    var nom = document.getElementById('fn').value.trim();
+    var tel = document.getElementById('ft').value.trim();
+    var mail = document.getElementById('fe').value.trim();
+    var wa = '<a href="https://wa.me/33769432605" target="_blank" rel="noopener" style="color:#C9A84C">écris-nous sur WhatsApp</a>';
+    showErr('');
+    if (!DB) { showErr('Connexion impossible pour le moment. Réessaie dans un instant ou ' + wa + '.'); return; }
+    var people = ST.groupe && ST.groupe.length ? ST.groupe : [{ cat: ST.cat, svc: ST.svc, deg: ST.deg, lon: ST.lon, obj: ST.obj, opts: ST.opts, date: ST.date, slot: ST.slot }];
+    var label0 = btn.innerHTML; btn.disabled = true; btn.innerHTML = 'Enregistrement…';
+    var done = [], i = 0;
+    function next() {
+      if (i >= people.length) {
+        btn.innerHTML = label0; btn.disabled = false;
+        window.__lastBooking = done;
+        goTo(8); addCardLink(done);
+        return;
+      }
+      var p = people[i], info = personInfo(p);
+      info.details.personne = people.length > 1 ? (i + 1) + '/' + people.length : '';
+      DB.rpc('site_book', { p_salon: SALON, p_date: p.date || ST.date, p_time: p.slot, p_name: nom, p_phone: tel, p_email: mail,
+        p_label: info.label, p_details: info.details, p_estimated_cents: info.cents, p_duration: info.dur }).then(function (r) {
+        var d = r && r.data;
+        if (d && d.ok) { done.push({ slot: p.slot, card: d.card }); i++; next(); return; }
+        btn.innerHTML = label0; btn.disabled = false;
+        var e = (d && d.error) || (r && r.error ? 'reseau' : 'inconnu');
+        var already = done.length ? ' Les ' + done.length + ' premier(s) rendez-vous sont bien enregistrés.' : '';
+        var msg = {
+          complet: 'Le créneau de ' + p.slot + ' vient d’être pris.' + already + ' <a href="#" onclick="goTo(6);return false" style="color:#C9A84C">Choisir un autre horaire</a>.',
+          ferme: 'Le salon est fermé sur ce créneau.' + already + ' <a href="#" onclick="goTo(6);return false" style="color:#C9A84C">Choisir un autre horaire</a>.',
+          passe: 'Ce créneau est déjà passé. <a href="#" onclick="goTo(6);return false" style="color:#C9A84C">Choisir un autre horaire</a>.',
+          telephone: 'Le numéro de téléphone ne semble pas valide. Vérifie-le (ex. 06 12 34 56 78).',
+          nom: 'Indique ton nom.',
+          trop_de_rdv: 'Tu as déjà plusieurs rendez-vous à venir. Pour en prendre d’autres, ' + wa + '.'
+        }[e] || ('L’enregistrement n’a pas fonctionné.' + already + ' Réessaie ou ' + wa + '.');
+        showErr(msg);
+        loadAvailability();
+      }, function () {
+        btn.innerHTML = label0; btn.disabled = false;
+        showErr('Pas de connexion internet. Réessaie dans un instant ou ' + wa + '.');
+      });
+    }
+    next();
+  };
+
+  function addCardLink(done) {
+    if (!done.length || !done[0].card) return;
+    var box = document.getElementById('conf-txt'); if (!box) return;
+    var old = document.getElementById('conf-card'); if (old) old.remove();
+    var a = document.createElement('a');
+    a.id = 'conf-card'; a.className = 'cal-add-btn'; a.target = '_blank'; a.rel = 'noopener';
+    a.href = CARD_URL + '#t=' + done[0].card;
+    a.style.cssText = 'margin-top:.9rem;border-color:#C9A84C;color:#C9A84C;font-weight:600';
+    a.textContent = 'Ouvrir ma carte de fidélité';
+    box.parentNode.insertBefore(a, box.nextSibling);
+  }
+
+  loadAvailability();
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) loadAvailability(); });
+})();
+</script>
+
 </body>
 </html>
