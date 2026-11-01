@@ -305,6 +305,8 @@ body {
   transition: all .15s;
 }
 .btn-out:active { border-color: rgba(201,168,76,.6); transform: scale(.98); }
+#s0 .body{justify-content:flex-start}#s0 .body>:first-child{margin-top:auto}#s0 .body>:last-child{margin-bottom:auto}
+#s0.me-on .logo{width:46vw;max-width:200px;margin-bottom:1rem}#s0.me-on .tagline{display:none}
 .hfe {
   font-size: .72rem;
   letter-spacing: .14em;
@@ -3004,10 +3006,14 @@ document.addEventListener('click',function(ev){
     if (!cat || !SVCS[cat]) return null;
     var off = window.SVC_OFF || [], svc = d.svc_id || null, deg = d.deg_id || null;
     if (!svc) {
-      var base = norm(String(last.label || '').split(' + ')[0]);
-      for (var i = 0; i < DEGS.length && !deg; i++) if (norm(DEGS[i].label) === base) deg = DEGS[i].id;
-      if (deg) svc = cat === 'enfant' ? null : 'degrade';
-      else { var l = SVCS[cat]; for (var j = 0; j < l.length; j++) if (norm(l[j].label) === base) svc = l[j].id; }
+      // le nom peut contenir des « + » (« Coupe + barbe rapide ») et des options ajoutées à la fin : on essaie du plus long au plus court
+      var parts = String(last.label || '').split(' + ');
+      for (var n = parts.length; n > 0 && !svc && !deg; n--) {
+        var base = norm(parts.slice(0, n).join(' + '));
+        for (var i = 0; i < DEGS.length && !deg; i++) if (norm(DEGS[i].label) === base) deg = DEGS[i].id;
+        if (deg) svc = cat === 'enfant' ? null : 'degrade';
+        else { var l = SVCS[cat]; for (var j = 0; j < l.length; j++) if (norm(l[j].label) === base) svc = l[j].id; }
+      }
     }
     var s = svc && findSvc2(svc, cat);
     if (!s || s.wa || !s.price || off.indexOf(s.id) > -1) return null;
@@ -3033,8 +3039,8 @@ document.addEventListener('click',function(ev){
       ft.value = p; ft.dispatchEvent(new Event('input', { bubbles: true }));
     }
   }
-  function rebook() {
-    var ch = ME && lastToChoice(ME.last);
+  function rebook(src) {
+    var ch = ME && lastToChoice(src || ME.last);
     if (!ch) { fillContact(); goTo(1); return; }
     nouvelleReservation();
     ST.cat = ch.cat; ST.svc = ch.svc; ST.deg = ch.deg; ST.lon = ch.lon; ST.obj = ch.obj; ST.opts = ch.opts.slice();
@@ -3055,38 +3061,89 @@ document.addEventListener('click',function(ev){
       + '<button type="button" id="me-rb-edit" style="background:transparent;border:1px solid #5A6478;color:#F0EBE1;border-radius:999px;padding:.45rem .9rem;font:inherit;font-size:.82rem;cursor:pointer">Modifier</button>';
     document.getElementById('me-rb-edit').onclick = function () { window.__rebook = null; goTo(2); };
   }
-  // Bandeau d'accueil
+  // Accueil : client reconnu ou non
   function meBox() {
-    var btns = document.querySelector('#s0 .btns'); if (!btns) return;
+    var s0 = document.getElementById('s0'), btns = document.querySelector('#s0 .btns'); if (!btns) return;
+    var main = btns.querySelector('.btn-gold');
     var box = document.getElementById('me-box');
     if (!box) { box = document.createElement('div'); box.id = 'me-box'; btns.parentNode.insertBefore(box, btns); }
     var link = document.getElementById('me-login-link');
     if (!link) {
       link = document.createElement('button'); link.type = 'button'; link.id = 'me-login-link';
-      link.style.cssText = 'display:block;margin:.9rem auto 0;background:none;border:0;color:#C9A84C;font:inherit;font-size:.88rem;text-decoration:underline;cursor:pointer';
-      link.onclick = openLogin; btns.parentNode.insertBefore(link, btns.nextSibling);
+      link.style.cssText = 'display:block;margin:0 auto 1.2rem;padding:.4rem .6rem;background:none;border:0;color:#C9A84C;font:inherit;font-size:.9rem;text-decoration:underline;text-underline-offset:3px;cursor:pointer';
+      btns.parentNode.insertBefore(link, btns.nextSibling);
     }
-    if (!ME) { box.style.display = 'none'; link.style.display = 'block'; link.textContent = 'Déjà client ? Retrouve tes infos'; return; }
-    link.style.display = 'none';
+    if (!ME) {
+      s0.classList.remove('me-on'); box.style.display = 'none'; if (main) main.style.display = '';
+      link.textContent = 'Déjà client ? Retrouve tes infos'; link.onclick = openLogin; return;
+    }
+    s0.classList.add('me-on');
+    link.textContent = 'Mon espace client'; link.onclick = openEspace;
     var ch = lastToChoice(ME.last);
-    box.style.cssText = 'width:100%;max-width:360px;margin:0 auto 1rem;border:1px solid rgba(201,168,76,.45);border-radius:16px;padding:1rem;text-align:center;color:#F0EBE1';
-    box.innerHTML = '<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.2rem;margin-bottom:.35rem">Content de te revoir' + (ME.first_name ? ', ' + escH(ME.first_name) : '') + ' !</div>'
-      + (ch ? '<div style="font-size:.88rem;color:rgba(240,235,225,.7);margin-bottom:.8rem">Ta dernière prestation : <b style="color:#F0EBE1">' + escH(ch.label) + '</b></div>'
-            + '<button type="button" id="me-again" class="btn-gold" style="width:100%;margin-bottom:.5rem">REFAIRE LA MÊME</button>'
-          : '<div style="font-size:.88rem;color:rgba(240,235,225,.7);margin-bottom:.8rem">Tes coordonnées seront déjà remplies.</div>')
-      + '<button type="button" id="me-other" class="btn-out" style="width:100%">' + (ch ? 'AUTRE PRESTATION' : 'PRENDRE RENDEZ-VOUS') + '</button>'
-      + '<button type="button" id="me-forget" style="margin-top:.6rem;background:none;border:0;color:rgba(240,235,225,.45);font:inherit;font-size:.78rem;text-decoration:underline;cursor:pointer">Ce n\'est pas moi</button>';
-    var a = document.getElementById('me-again'); if (a) a.onclick = rebook;
+    box.style.cssText = 'display:block;width:100%;max-width:' + (getComputedStyle(btns).maxWidth || '340px') + ';margin:0 auto .7rem;text-align:center;color:#F0EBE1';
+    box.innerHTML = '<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.25rem;margin-bottom:.8rem">Content de te revoir' + (ME.first_name ? ', ' + escH(ME.first_name) : '') + ' !</div>'
+      + (ch ? '<button type="button" id="me-again" class="btn-gold" style="width:100%;margin-bottom:.7rem">REFAIRE : ' + escH(ch.label.toUpperCase()) + '</button>' : '')
+      + '<button type="button" id="me-other" class="' + (ch ? 'btn-out' : 'btn-gold') + '" style="width:100%">' + (ch ? 'AUTRE PRESTATION' : 'PRENDRE RENDEZ-VOUS') + '</button>';
+    if (main) main.style.display = 'none';
+    var a = document.getElementById('me-again'); if (a) a.onclick = function () { rebook(null); };
     document.getElementById('me-other').onclick = function () { window.__rebook = null; nouvelleReservation(); fillContact(); goTo(1); };
-    document.getElementById('me-forget').onclick = function () { meSet(null); ME = null; window.__rebook = null; meBox(); };
   }
-  function loadMe(tok, thenRebook) {
+  function meForget() { meSet(null); ME = null; window.__rebook = null; closeEspace(); meBox(); }
+  // Page « Mon espace »
+  function fmtDay(iso) { try { var d = new Date(iso); return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h'); } catch (e) { return ''; } }
+  function closeEspace() { var o = document.getElementById('me-espace'); if (o) o.remove(); document.documentElement.style.overflow = ''; }
+  function openEspace() {
+    if (!ME) return;
+    closeEspace();
+    var o = document.createElement('div'); o.id = 'me-espace'; o.setAttribute('role', 'dialog'); o.setAttribute('aria-label', 'Mon espace');
+    o.style.cssText = 'position:fixed;inset:0;z-index:9000;background:#0B1629;overflow-y:auto;-webkit-overflow-scrolling:touch;color:#F0EBE1';
+    var size = Math.max(1, (ME.card_size || 10) - 1), st = Math.min(ME.stamps || 0, size);
+    var card = 'border:1px solid #2A3B55;border-radius:16px;padding:1rem 1.1rem;margin-bottom:.9rem;background:#0E1C33';
+    var kick = 'font-size:.72rem;letter-spacing:.16em;color:#C9A84C;text-transform:uppercase;margin-bottom:.45rem';
+    var hist = (ME.history || []).filter(function (h) { return h.status !== 'upcoming'; });
+    var rows = hist.map(function (h, i) {
+      var c = h.status === 'cancelled', ch = !c && lastToChoice({ label: h.label, details: h.details });
+      return '<div style="display:flex;align-items:center;gap:.8rem;padding:.7rem 0;border-top:1px solid #1E2D46">'
+        + '<div style="flex:1;min-width:0"><div style="' + (c ? 'text-decoration:line-through;opacity:.5' : 'font-weight:600') + '">' + escH(h.label) + (c ? ' (annulé)' : '') + '</div>'
+        + '<div style="font-size:.8rem;color:rgba(240,235,225,.55)">' + escH(fmtDay(h.starts_at)) + (h.cents && !c ? ' · ' + Math.round(h.cents / 100) + ' €' : '') + '</div></div>'
+        + (ch ? '<button type="button" data-again="' + i + '" style="flex-shrink:0;background:transparent;border:1px solid #C9A84C;color:#C9A84C;border-radius:999px;padding:.45rem .95rem;font:inherit;font-size:.82rem;cursor:pointer">Refaire</button>' : '')
+        + '</div>';
+    }).join('');
+    var up = ME.upcoming;
+    o.innerHTML = '<div style="max-width:560px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 1rem) 1.1rem calc(env(safe-area-inset-bottom,0px) + 2rem)">'
+      + '<button type="button" id="me-e-back" style="background:transparent;border:1px solid #5A6478;color:#F0EBE1;border-radius:999px;padding:.55rem 1rem;font:inherit;font-size:.88rem;cursor:pointer;margin-bottom:1.2rem">&#8592; Accueil</button>'
+      + '<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.9rem;line-height:1.2;margin-bottom:.3rem">Bonjour' + (ME.first_name ? ' ' + escH(ME.first_name) : '') + '</div>'
+      + '<div style="font-size:.9rem;color:rgba(240,235,225,.55);margin-bottom:1.3rem">Ton espace client PHENO&amp;CO</div>'
+      + '<div style="' + card + '"><div style="' + kick + '">Ma carte de fidélité</div>'
+      + '<div style="font-size:1.25rem;font-weight:600;margin-bottom:.5rem">' + st + ' / ' + size + ' tampons</div>'
+      + '<div style="height:8px;border-radius:6px;background:#1E2D46;overflow:hidden;margin-bottom:.8rem"><i style="display:block;height:100%;width:' + Math.round(st / size * 100) + '%;background:#C9A84C"></i></div>'
+      + '<a href="' + CARD_URL + '#t=' + encodeURIComponent(meGet() || '') + '" target="_blank" rel="noopener" style="color:#C9A84C;font-size:.9rem">Ouvrir ma carte</a></div>'
+      + '<div style="' + card + '"><div style="' + kick + '">Mon prochain rendez-vous</div>'
+      + (up ? '<div style="font-weight:600">' + escH(fmtDay(up.starts_at)) + '</div><div style="font-size:.88rem;color:rgba(240,235,225,.7);margin-bottom:.6rem">' + escH(up.label) + '</div>'
+            + '<a href="' + CARD_URL + '#t=' + encodeURIComponent(meGet() || '') + '" target="_blank" rel="noopener" style="color:#C9A84C;font-size:.88rem">Annuler ou déplacer</a>'
+          : '<div style="font-size:.92rem;color:rgba(240,235,225,.6)">Aucun pour l\'instant.</div>') + '</div>'
+      + '<div style="' + card + '"><div style="' + kick + '">Mon historique</div>'
+      + (rows || '<div style="font-size:.92rem;color:rgba(240,235,225,.6)">Ton historique apparaîtra après ta première visite.</div>') + '</div>'
+      + '<button type="button" id="me-e-new" class="btn-gold" style="width:100%;margin:.4rem 0 1rem">NOUVEAU RENDEZ-VOUS</button>'
+      + '<button type="button" id="me-e-forget" style="display:block;margin:0 auto;background:none;border:0;color:rgba(240,235,225,.45);font:inherit;font-size:.82rem;text-decoration:underline;cursor:pointer">Ce n\'est pas moi · se déconnecter</button>'
+      + '</div>';
+    document.body.appendChild(o); document.documentElement.style.overflow = 'hidden';
+    document.getElementById('me-e-back').onclick = closeEspace;
+    document.getElementById('me-e-forget').onclick = meForget;
+    document.getElementById('me-e-new').onclick = function () { closeEspace(); window.__rebook = null; nouvelleReservation(); fillContact(); goTo(1); };
+    o.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-again]'); if (!b) return;
+      var h = hist[+b.getAttribute('data-again')]; closeEspace(); rebook({ label: h.label, details: h.details });
+    });
+  }
+  function loadMe(tok, thenRebook, thenEspace) {
     if (!DB || !tok) { meBox(); return; }
     DB.rpc('site_me', { p_token: tok }).then(function (r) {
       var d = r && r.data;
       if (!d || !d.ok) { meSet(null); ME = null; meBox(); return; }
       ME = d; meSet(tok); meBox();
-      if (thenRebook) rebook();
+      if (thenRebook) rebook(null);
+      else if (thenEspace) openEspace();
     }, function () { meBox(); });
   }
   // « Déjà client ? » : numéro + e-mail
@@ -3114,7 +3171,7 @@ document.addEventListener('click',function(ev){
       DB.rpc('site_login', { p_salon: SALON, p_phone: t, p_email: m }).then(function (r) {
         var d = r && r.data;
         if (!d || !d.ok) { er.textContent = 'On ne te retrouve pas avec ce numéro et cet e-mail. Fais une réservation normale : on te reconnaîtra la prochaine fois.'; return; }
-        o.remove(); loadMe(d.token, false);
+        o.remove(); loadMe(d.token, false, true);
       }, function () { er.textContent = 'Connexion impossible pour le moment.'; });
     };
   }
