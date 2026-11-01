@@ -2809,6 +2809,7 @@ document.addEventListener('click',function(ev){
     var cats = { homme: 'Homme', femme: 'Femme', enfant: 'Enfant 2-16 ans' };
     return { label: label, base: baseLabel, opts: opts, cents: Math.round(price * 100), dur: dur,
       details: { categorie: cats[p.cat] || p.cat || '', longueur: p.lon || '', objectif: p.obj || '', options: opts, fidele: !!fid,
+        cat_key: p.cat || '', svc_id: p.svc || '', deg_id: p.deg || '', opt_ids: (p.opts || []).slice(0, 10),
         message: ((document.getElementById('fm') || {}).value || '').trim().slice(0, 500) } };
   }
 
@@ -2863,7 +2864,7 @@ document.addEventListener('click',function(ev){
       if (i >= people.length) {
         btn.innerHTML = label0; btn.disabled = false;
         window.__lastBooking = done;
-        goTo(8); addCardLink(done); setCalendarLinks(done); addWhatsApp(done);
+        goTo(8); addCardLink(done); setCalendarLinks(done); addWhatsApp(done); if (window.pncRemember) window.pncRemember(done);
         return;
       }
       var p = people[i], info = personInfo(p);
@@ -2969,13 +2970,168 @@ document.addEventListener('click',function(ev){
     if (!done.length || !done[0].card) return;
     var box = document.getElementById('conf-txt'); if (!box) return;
     var old = document.getElementById('conf-card'); if (old) old.remove();
-    var a = document.createElement('a');
-    a.id = 'conf-card'; a.className = 'cal-add-btn'; a.target = '_blank'; a.rel = 'noopener';
-    a.href = CARD_URL + '#t=' + done[0].card;
-    a.style.cssText = 'margin-top:.9rem;border-color:#C9A84C;color:#C9A84C;font-weight:600';
-    a.textContent = 'Ouvrir ma carte de fidélité';
-    box.parentNode.insertBefore(a, box.nextSibling);
+    var url = CARD_URL + '#t=' + done[0].card;
+    var w = document.createElement('div');
+    w.id = 'conf-card';
+    w.style.cssText = 'margin-top:1rem;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:.9rem;text-align:center';
+    w.innerHTML = '<div style="font-weight:600;color:#F0EBE1;margin-bottom:.25rem">Tu veux ta carte de fidélité ?</div>'
+      + '<div style="font-size:.84rem;color:rgba(240,235,225,.6);line-height:1.5;margin-bottom:.75rem">Tes tampons, tes rendez-vous et ton historique au même endroit. C\'est gratuit.</div>'
+      + '<div style="display:flex;gap:.5rem"><button type="button" id="cc-yes" class="cal-add-btn" style="flex:1;margin:0;border-color:#C9A84C;color:#C9A84C;font-weight:600">Oui, je la veux</button>'
+      + '<button type="button" id="cc-no" class="cal-add-btn" style="flex:1;margin:0">Non merci</button></div>';
+    box.parentNode.insertBefore(w, box.nextSibling);
+    document.getElementById('cc-yes').onclick = function () {
+      w.innerHTML = '<div style="font-weight:600;color:#C9A84C;margin-bottom:.3rem">C\'est noté !</div>'
+        + '<div style="font-size:.86rem;color:rgba(240,235,225,.7);line-height:1.55;margin-bottom:.7rem">Ta carte est prête. On l\'installe ensemble sur ton téléphone lors de ton passage au salon.</div>'
+        + '<a class="cal-add-btn" href="' + url + '" target="_blank" rel="noopener" style="margin:0;border-color:#C9A84C;color:#C9A84C">Voir ma carte maintenant</a>';
+    };
+    document.getElementById('cc-no').onclick = function () {
+      w.innerHTML = '<div style="font-size:.86rem;color:rgba(240,235,225,.7);line-height:1.55">Pas de souci ! La prochaine fois, le site se souviendra de toi : pas besoin de tout refaire.</div>';
+    };
   }
+
+  // ===== Client reconnu : « Content de te revoir » + « Refaire la même » + « Déjà client ? » =====
+  var ME_KEY = 'pnc_me', ME = null, UUIDRE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  function meGet() { try { var t = localStorage.getItem(ME_KEY); return t && UUIDRE.test(t) ? t : null; } catch (e) { return null; } }
+  function meSet(t) { try { if (t && UUIDRE.test(t)) localStorage.setItem(ME_KEY, t); else localStorage.removeItem(ME_KEY); } catch (e) {} }
+  function escH(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function norm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim(); }
+
+  // Retrouve la prestation d'une ancienne réservation (codes enregistrés, sinon par le nom)
+  function lastToChoice(last) {
+    if (!last || !last.details) return null;
+    var d = last.details, cat = d.cat_key;
+    if (!cat) { var c = norm(d.categorie); cat = c.indexOf('enfant') === 0 ? 'enfant' : c === 'femme' ? 'femme' : c === 'homme' ? 'homme' : null; }
+    if (!cat || !SVCS[cat]) return null;
+    var off = window.SVC_OFF || [], svc = d.svc_id || null, deg = d.deg_id || null;
+    if (!svc) {
+      var base = norm(String(last.label || '').split(' + ')[0]);
+      for (var i = 0; i < DEGS.length && !deg; i++) if (norm(DEGS[i].label) === base) deg = DEGS[i].id;
+      if (deg) svc = cat === 'enfant' ? null : 'degrade';
+      else { var l = SVCS[cat]; for (var j = 0; j < l.length; j++) if (norm(l[j].label) === base) svc = l[j].id; }
+    }
+    var s = svc && findSvc2(svc, cat);
+    if (!s || s.wa || !s.price || off.indexOf(s.id) > -1) return null;
+    if (deg && !findDeg(deg)) deg = null;
+    var opts = [];
+    if (Array.isArray(d.opt_ids)) opts = d.opt_ids.filter(function (o) { var x = findOpt(o); return x && x.cats.indexOf(cat) > -1; });
+    else if (Array.isArray(d.options)) d.options.forEach(function (lab) { for (var k = 0; k < OPTS.length; k++) if (norm(OPTS[k].label) === norm(lab) && OPTS[k].cats.indexOf(cat) > -1) opts.push(OPTS[k].id); });
+    return { cat: cat, svc: s.id, deg: deg, lon: d.longueur || '', obj: d.objectif || '', opts: opts, label: (deg ? findDeg(deg).label : s.label) };
+  }
+  function choicePrice(ch) {
+    var s = findSvc2(ch.svc, ch.cat), p = s ? s.price : 0, fp = (window.FIDELE_PRIX || {})[ch.svc];
+    if (ME && ME.fidele && fp && fp < p) p = fp;
+    ch.opts.forEach(function (o) { var x = findOpt(o); if (x) p += x.price || 0; });
+    return p;
+  }
+  function fillContact() {
+    if (!ME) return;
+    var fn = document.getElementById('fn'), ft = document.getElementById('ft'), fe = document.getElementById('fe');
+    if (fn && !fn.value) fn.value = ME.first_name || '';
+    if (fe && !fe.value) fe.value = ME.email || '';
+    if (ft && !ft.value && ME.phone) {
+      var p = String(ME.phone).replace(/^\+33/, '0');
+      ft.value = p; ft.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  }
+  function rebook() {
+    var ch = ME && lastToChoice(ME.last);
+    if (!ch) { fillContact(); goTo(1); return; }
+    nouvelleReservation();
+    ST.cat = ch.cat; ST.svc = ch.svc; ST.deg = ch.deg; ST.lon = ch.lon; ST.obj = ch.obj; ST.opts = ch.opts.slice();
+    var s = findSvc2(ch.svc, ch.cat); ST.baseP = s.price; ST.baseD = s.dur;
+    window.__rebook = ch;
+    fillContact();
+    goTo(6);
+  }
+  // Rappel de la prestation en haut du choix du créneau, avec « Modifier »
+  function rebookBar() {
+    var s6 = document.getElementById('s6'), m = s6 && s6.querySelector('.main'), old = document.getElementById('me-rb');
+    var ch = window.__rebook;
+    if (!ch || ST.svc !== ch.svc || ST.cat !== ch.cat) { if (old) old.remove(); return; }
+    if (!m) return;
+    if (!old) { old = document.createElement('div'); old.id = 'me-rb'; m.insertBefore(old, m.firstChild); }
+    old.style.cssText = 'max-width:480px;margin:0 auto .8rem;border:1px solid rgba(201,168,76,.45);border-radius:12px;padding:.7rem .9rem;display:flex;align-items:center;gap:.8rem;font-size:.9rem;color:#F0EBE1';
+    old.innerHTML = '<div style="flex:1;line-height:1.45"><b>' + escH(ch.label) + '</b><br><span style="color:#C9A84C">' + choicePrice(ch) + ' EUR</span> <span style="opacity:.6;font-size:.8rem">· même prestation que la dernière fois</span></div>'
+      + '<button type="button" id="me-rb-edit" style="background:transparent;border:1px solid #5A6478;color:#F0EBE1;border-radius:999px;padding:.45rem .9rem;font:inherit;font-size:.82rem;cursor:pointer">Modifier</button>';
+    document.getElementById('me-rb-edit').onclick = function () { window.__rebook = null; goTo(2); };
+  }
+  // Bandeau d'accueil
+  function meBox() {
+    var btns = document.querySelector('#s0 .btns'); if (!btns) return;
+    var box = document.getElementById('me-box');
+    if (!box) { box = document.createElement('div'); box.id = 'me-box'; btns.parentNode.insertBefore(box, btns); }
+    var link = document.getElementById('me-login-link');
+    if (!link) {
+      link = document.createElement('button'); link.type = 'button'; link.id = 'me-login-link';
+      link.style.cssText = 'display:block;margin:.9rem auto 0;background:none;border:0;color:#C9A84C;font:inherit;font-size:.88rem;text-decoration:underline;cursor:pointer';
+      link.onclick = openLogin; btns.parentNode.insertBefore(link, btns.nextSibling);
+    }
+    if (!ME) { box.style.display = 'none'; link.style.display = 'block'; link.textContent = 'Déjà client ? Retrouve tes infos'; return; }
+    link.style.display = 'none';
+    var ch = lastToChoice(ME.last);
+    box.style.cssText = 'width:100%;max-width:360px;margin:0 auto 1rem;border:1px solid rgba(201,168,76,.45);border-radius:16px;padding:1rem;text-align:center;color:#F0EBE1';
+    box.innerHTML = '<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.2rem;margin-bottom:.35rem">Content de te revoir' + (ME.first_name ? ', ' + escH(ME.first_name) : '') + ' !</div>'
+      + (ch ? '<div style="font-size:.88rem;color:rgba(240,235,225,.7);margin-bottom:.8rem">Ta dernière prestation : <b style="color:#F0EBE1">' + escH(ch.label) + '</b></div>'
+            + '<button type="button" id="me-again" class="btn-gold" style="width:100%;margin-bottom:.5rem">REFAIRE LA MÊME</button>'
+          : '<div style="font-size:.88rem;color:rgba(240,235,225,.7);margin-bottom:.8rem">Tes coordonnées seront déjà remplies.</div>')
+      + '<button type="button" id="me-other" class="btn-out" style="width:100%">' + (ch ? 'AUTRE PRESTATION' : 'PRENDRE RENDEZ-VOUS') + '</button>'
+      + '<button type="button" id="me-forget" style="margin-top:.6rem;background:none;border:0;color:rgba(240,235,225,.45);font:inherit;font-size:.78rem;text-decoration:underline;cursor:pointer">Ce n\'est pas moi</button>';
+    var a = document.getElementById('me-again'); if (a) a.onclick = rebook;
+    document.getElementById('me-other').onclick = function () { window.__rebook = null; nouvelleReservation(); fillContact(); goTo(1); };
+    document.getElementById('me-forget').onclick = function () { meSet(null); ME = null; window.__rebook = null; meBox(); };
+  }
+  function loadMe(tok, thenRebook) {
+    if (!DB || !tok) { meBox(); return; }
+    DB.rpc('site_me', { p_token: tok }).then(function (r) {
+      var d = r && r.data;
+      if (!d || !d.ok) { meSet(null); ME = null; meBox(); return; }
+      ME = d; meSet(tok); meBox();
+      if (thenRebook) rebook();
+    }, function () { meBox(); });
+  }
+  // « Déjà client ? » : numéro + e-mail
+  function openLogin() {
+    if (document.getElementById('me-login')) return;
+    var o = document.createElement('div'); o.id = 'me-login'; o.setAttribute('role', 'dialog');
+    o.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(5,10,20,.88);display:flex;align-items:center;justify-content:center;padding:20px';
+    var inp = 'width:100%;box-sizing:border-box;background:#0E1C33;border:1px solid #2A3B55;border-radius:12px;color:#F0EBE1;padding:13px;font:inherit;font-size:16px;margin-bottom:10px';
+    o.innerHTML = '<form id="me-login-f" style="width:min(420px,100%);background:#0B1629;border:1px solid rgba(201,168,76,.55);border-radius:20px;padding:24px 20px;color:#F0EBE1">'
+      + '<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.35rem;text-align:center;margin-bottom:6px">Déjà client ?</div>'
+      + '<p style="text-align:center;color:#B5B9C2;font-size:.9rem;margin:0 0 16px;line-height:1.5">Entre le numéro et l\'e-mail utilisés pour tes réservations.</p>'
+      + '<input id="me-l-tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ton numéro de téléphone" style="' + inp + '">'
+      + '<input id="me-l-mail" type="email" inputmode="email" autocomplete="email" placeholder="Ton adresse e-mail" style="' + inp + '">'
+      + '<p id="me-l-err" style="color:#E0614F;font-size:.85rem;min-height:1.2em;margin:0 0 8px;text-align:center"></p>'
+      + '<button type="submit" class="btn-gold" style="width:100%">ME RETROUVER</button>'
+      + '<button type="button" id="me-l-close" style="margin-top:10px;width:100%;background:transparent;color:#F0EBE1;border:1px solid #5A6478;border-radius:999px;padding:12px;font:inherit;cursor:pointer">Annuler</button></form>';
+    document.body.appendChild(o);
+    document.getElementById('me-l-close').onclick = function () { o.remove(); };
+    document.getElementById('me-login-f').onsubmit = function (e) {
+      e.preventDefault();
+      var t = document.getElementById('me-l-tel').value, m = document.getElementById('me-l-mail').value, er = document.getElementById('me-l-err');
+      if (t.replace(/\D/g, '').length < 9 || m.indexOf('@') < 1) { er.textContent = 'Entre ton numéro et ton e-mail.'; return; }
+      if (!DB) { er.textContent = 'Connexion impossible pour le moment.'; return; }
+      er.textContent = 'Recherche…';
+      DB.rpc('site_login', { p_salon: SALON, p_phone: t, p_email: m }).then(function (r) {
+        var d = r && r.data;
+        if (!d || !d.ok) { er.textContent = 'On ne te retrouve pas avec ce numéro et cet e-mail. Fais une réservation normale : on te reconnaîtra la prochaine fois.'; return; }
+        o.remove(); loadMe(d.token, false);
+      }, function () { er.textContent = 'Connexion impossible pour le moment.'; });
+    };
+  }
+  // Fin de réservation : on retient le client, et la carte de fidélité est proposée (oui / non)
+  window.pncRemember = function (done) { if (done && done[0] && done[0].card) { meSet(done[0].card); loadMe(done[0].card, false); } };
+  // Arrivée depuis la carte de fidélité : #me=<carte>&go=1
+  var hm = /[#&]me=([0-9a-f-]{36})(&go=1)?/i.exec(location.hash || '');
+  if (hm) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} loadMe(hm[1], !!hm[2]); }
+  else loadMe(meGet(), false);
+  var _goToMe = window.goTo;
+  window.goTo = function (n) {
+    if (n === 1 || n === 2) { if (n === 1) window.__rebook = null; setTimeout(fillContact, 0); }
+    var r = _goToMe.apply(this, arguments);
+    if (n === 6) rebookBar();
+    if (n === 7) fillContact();
+    return r;
+  };
 
   loadAvailability();
   document.addEventListener('visibilitychange', function () { if (!document.hidden) loadAvailability(); });
