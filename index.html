@@ -2686,12 +2686,42 @@ document.addEventListener('click',function(ev){
     return DB.rpc('site_availability', { p_salon: SALON, p_from: ymd(from), p_to: ymd(to) }).then(function (r) {
       if (r && r.data && r.data.ok) {
         AV = r.data;
+        window.__bookingClosed = AV.booking_open === false;
+        if (window.__bookingClosed && isBookingScreen()) showClosed();
         if (document.getElementById('cal-grid') && document.getElementById('cal-grid').innerHTML) {
           var keepDate = ST.date; renderCal();
           if (keepDate && document.getElementById('slots-wrap').style.display === 'block') renderSlots(keepDate);
         }
       }
     }, function () {});
+  };
+
+  // Interrupteur du tableau de bord : reservations en ligne fermees
+  var WA_NUM = '33769432605';
+  function isBookingScreen() {
+    var a = document.querySelector('.screen.active');
+    return !!(a && /^s([1-7]|2b)$/.test(a.id));
+  }
+  function showClosed() {
+    if (document.getElementById('pnc-closed')) return;
+    var o = document.createElement('div');
+    o.id = 'pnc-closed';
+    o.setAttribute('role', 'dialog');
+    o.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(5,10,20,.88);display:flex;align-items:center;justify-content:center;padding:20px';
+    o.innerHTML = '<div style="width:min(440px,100%);background:#0B1629;border:1px solid rgba(201,168,76,.55);border-radius:20px;padding:26px 20px;text-align:center;color:#F0EBE1">'
+      + '<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.5rem;line-height:1.25;margin:0 0 10px">R\u00e9servations momentan\u00e9ment ferm\u00e9es</div>'
+      + '<div style="width:90px;height:1px;background:#C9A84C;opacity:.6;margin:0 auto 14px"></div>'
+      + '<p style="margin:0 0 18px;color:#B5B9C2;font-size:.95rem;line-height:1.6">Pour prendre rendez-vous, utilise le site habituel ou \u00e9cris-nous.</p>'
+      + '<a href="https://wa.me/' + WA_NUM + '" target="_blank" rel="noopener" style="display:block;background:#1F6E4A;color:#fff;border-radius:999px;padding:14px;font-weight:600;letter-spacing:.06em;text-decoration:none">NOUS \u00c9CRIRE SUR WHATSAPP</a>'
+      + '<button type="button" id="pnc-closed-back" style="margin-top:10px;width:100%;background:transparent;color:#F0EBE1;border:1px solid #5A6478;border-radius:999px;padding:13px;font:inherit;cursor:pointer">Retour \u00e0 l\u2019accueil</button>'
+      + '</div>';
+    document.body.appendChild(o);
+    document.getElementById('pnc-closed-back').addEventListener('click', function () { o.remove(); _goTo(0); });
+  }
+  var _goTo = window.goTo;
+  window.goTo = function (n) {
+    if (window.__bookingClosed && (n === '2b' || (typeof n === 'number' && n >= 1 && n <= 7))) { showClosed(); return; }
+    return _goTo.apply(this, arguments);
   };
 
   // Calendrier : jours fermés ou complets grisés
@@ -2801,7 +2831,7 @@ document.addEventListener('click',function(ev){
       if (i >= people.length) {
         btn.innerHTML = label0; btn.disabled = false;
         window.__lastBooking = done;
-        goTo(8); addCardLink(done); setCalendarLinks(done);
+        goTo(8); addCardLink(done); setCalendarLinks(done); addWhatsApp(done);
         return;
       }
       var p = people[i], info = personInfo(p);
@@ -2820,9 +2850,11 @@ document.addEventListener('click',function(ev){
           passe: 'Ce créneau est déjà passé. <a href="#" onclick="goTo(6);return false" style="color:#C9A84C">Choisir un autre horaire</a>.',
           telephone: 'Le numéro de téléphone ne semble pas valide. Vérifie-le (ex. 06 12 34 56 78).',
           nom: 'Indique ton nom.',
-          trop_de_rdv: 'Tu as déjà plusieurs rendez-vous à venir. Pour en prendre d’autres, ' + wa + '.'
+          trop_de_rdv: 'Tu as déjà plusieurs rendez-vous à venir. Pour en prendre d’autres, ' + wa + '.',
+          ferme_en_ligne: 'Les réservations en ligne sont momentanément fermées. Pour prendre rendez-vous, ' + wa + '.'
         }[e] || ('L’enregistrement n’a pas fonctionné.' + already + ' Réessaie ou ' + wa + '.');
         showErr(msg);
+        if (e === 'ferme_en_ligne') { window.__bookingClosed = true; showClosed(); }
         loadAvailability();
       }, function () {
         btn.innerHTML = label0; btn.disabled = false;
@@ -2878,6 +2910,27 @@ document.addEventListener('click',function(ev){
     links[1].setAttribute('download', 'rendez-vous-phenoandco.ics');
     links[1].removeAttribute('target');
     links[1].textContent = 'Ajouter à mon agenda (iPhone, Outlook…)';
+  }
+
+  function addWhatsApp(done) {
+    if (!done.length) return;
+    var old = document.getElementById('conf-wa'); if (old) old.remove();
+    var cal = document.querySelector('#s8 .cal-add-btns'); if (!cal) return;
+    var f = done[0], dt = new Date(f.date + 'T12:00:00');
+    var jours = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+    var quand = jours[dt.getDay()] + ' ' + dt.getDate() + ' \u00e0 ' + f.slot.replace(':', 'h');
+    var txt = 'Bonjour Pheno, ' + (f.name ? 'c\u2019est ' + f.name.trim() + '. ' : '') + 'J\u2019ai r\u00e9serv\u00e9 ' + quand + ' (' + f.base + '). Je voulais te pr\u00e9ciser : ';
+    var box = document.createElement('div');
+    box.id = 'conf-wa';
+    box.style.cssText = 'margin-top:1rem;padding-top:.9rem;border-top:1px solid rgba(201,168,76,.18)';
+    box.innerHTML = '<div style="font-size:.88rem;color:rgba(240,235,225,.7);line-height:1.55;margin-bottom:.6rem">Un besoin pr\u00e9cis, une photo de la coupe voulue ?<br>Envoie-moi un message, je le re\u00e7ois directement.</div>';
+    var a = document.createElement('a');
+    a.className = 'cal-add-btn'; a.target = '_blank'; a.rel = 'noopener';
+    a.href = 'https://wa.me/' + WA_NUM + '?text=' + encodeURIComponent(txt);
+    a.style.cssText = 'background:#1F6E4A;border-color:#1F6E4A;color:#fff;font-weight:600';
+    a.textContent = 'M\u2019\u00e9crire sur WhatsApp';
+    box.appendChild(a);
+    cal.parentNode.insertBefore(box, cal.nextSibling);
   }
 
   function addCardLink(done) {
