@@ -53,7 +53,7 @@
   "potentialAction": { "@type": "ReserveAction", "target": "https://phenoandco.netlify.app/" }
 }
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&family=Caveat:wght@500&display=swap" rel="stylesheet">
 <style>
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -531,6 +531,7 @@ html, body { background: #0B1629; }
 .finput::placeholder { color: rgba(240,235,225,.2); }
 
 /*  WHATSAPP  */
+.pnc-note{border-left:2px solid #C9A84C;padding:.2rem 0 .2rem .8rem;margin:0 0 1.1rem;font-family:'Caveat',cursive;font-size:1.35rem;line-height:1.25;color:#E8D9B0;transform:rotate(-.5deg)}.pnc-note span{display:block;text-align:right;margin-top:.2rem}
 .wa-block { background: rgba(37,211,102,.07); border: 1px solid rgba(37,211,102,.28); border-radius: 14px; padding: 1.3rem; margin-top: .5rem; }
 .wa-block p { font-size: .9rem; color: rgba(240,235,225,.7); line-height: 1.6; margin-bottom: 1.1rem; }
 .wa-btn { display: flex; align-items: center; justify-content: center; gap: .6rem; background: #25D366; color: #fff; border: none; border-radius: 12px; padding: 1rem; font-family: 'Inter', sans-serif; font-size: .95rem; font-weight: 700; cursor: pointer; width: 100%; text-decoration: none; }
@@ -1013,10 +1014,7 @@ html, body {
 <div class="main"><div class="card">
   <div class="card-title">Que souhaitez-vous faire ?</div>
   <div class="card-sub">Selectionnez une prestation principale.</div>
-  <div style="background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:.75rem .9rem;margin-bottom:1rem;font-size:.82rem;color:rgba(240,235,225,.65);line-height:1.6">
-    Chaque prestation comprend la coupe et un shampoing standard si souhaite. Un shampoing avec produit specifique adapte a vos cheveux peut entrainer un supplement.
-  </div>
-  <div style="background:rgba(201,168,76,.07);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:.75rem .9rem;margin-bottom:1rem;font-size:.82rem;color:rgba(240,235,225,.75);line-height:1.6"><b>Le prix de base, c'est la coupe choisie, sur cheveux propres et démêlés.</b> Démêlage, soin, cheveux longs, options : coche-les, ils s'ajoutent et tu vois ton total avant de réserver. <b>Ce qui est demandé en plus au salon s'ajoute au prix.</b><br><span style="color:#C9A84C">Déjà client ? Ton tarif fidèle est conservé (22 € la coupe, 15 € l'enfant) : il s'affiche automatiquement quand tu entres ton numéro.</span></div>
+  <div class="pnc-note">Chaque prestation comprend la coupe et un shampoing standard si tu le souhaites. Un shampoing avec un produit spécifique adapté à tes cheveux peut entraîner un supplément.<span>— Pheno</span></div>
   <div id="svc-list"></div>
 </div></div>
 <div class="sticky"><div class="sticky-in">
@@ -1611,16 +1609,16 @@ document.addEventListener('click', function(e) {
 });
 
 //  DATA 
-var FIDELE_PRIX = window.FIDELE_PRIX = {'degrade':22,'buzz':22,'buzz-f':22,'coupe-e':15};
+var FIDELE_PRIX = window.FIDELE_PRIX = {'degrade':22,'coupe-e':15};
 var SVCS = window.SVCS = {
   homme: [
     {id:'degrade',label:'Degrade',price:25,dur:30,hasSub:true},
-    {id:'coupe-barbe-r',label:'Coupe + barbe rapide',price:30,dur:45},
-    {id:'coupe-barbe-c',label:'Coupe + barbe complete',price:35,dur:60},
+    {id:'coupe-barbe-r',label:'Coupe + barbe rapide',price:25,dur:45},
+    {id:'coupe-barbe-c',label:'Coupe + barbe complete',price:28,dur:60},
     {id:'buzz',label:'Buzz Cut',price:25,dur:25},
     {id:'waves',label:'Waves',price:30,dur:60,from:true},
-    {id:'forfait-soin',label:'Forfait complet - Coupe + shampoing + coiffage',price:45,dur:60,from:true},
-    {id:'forfait-curly',label:'Forfait Curly / Boucles',price:55,dur:75,from:true},
+    {id:'forfait-soin',label:'Coupe + shampoing + coiffage',price:45,dur:60,from:true},
+    {id:'forfait-curly',label:'Boucles / Curly - sur conseil',price:55,dur:75,from:true,wa:true},
     {id:'color-caramel',label:'Highlights / Meches',price:45,dur:90,from:true,wa:true},
     {id:'coloration',label:'Coloration totale',price:50,dur:90,from:true,wa:true},
     {id:'decoloration',label:'Blanc polaire / Decoloration',price:80,dur:120,from:true,wa:true},
@@ -1629,11 +1627,11 @@ var SVCS = window.SVCS = {
     {id:'autre-h',label:'Autre - sur devis',price:0,dur:0,wa:true}
   ],
   femme: [
-    {id:'big-chop',label:'Big Chop',price:35,dur:45},
+    {id:'big-chop',label:'Big Chop',price:30,dur:45},
     {id:'buzz-f',label:'Buzz Cut classique',price:25,dur:25},
-    {id:'big-chop-s',label:'Big Chop + shampoing + coupe',price:55,dur:75},
-    {id:'forfait-f',label:'Forfait complet - Coupe + shampoing + soin + coiffage',price:55,dur:75,from:true},
-    {id:'forfait-f-curl',label:'Forfait Curly / Boucles',price:65,dur:90,from:true},
+    {id:'big-chop-s',label:'Big Chop + shampoing + coupe + coiffage',price:55,dur:75},
+    {id:'forfait-f',label:'Coupe + shampoing + soin + coiffage',price:55,dur:75,from:true},
+    {id:'forfait-f-curl',label:'Boucles / Curly - sur conseil',price:65,dur:90,from:true,wa:true},
     {id:'color-f',label:'Highlights / Meches',price:55,dur:90,from:true,wa:true},
     {id:'blond-patine',label:'Blond avec patine',price:85,dur:120,from:true,wa:true},
     {id:'blanc-polaire-f',label:'Blanc polaire / Decoloration',price:95,dur:150,from:true,wa:true},
@@ -1801,7 +1799,8 @@ function selCat(cat){
 }
 
 function buildSvc(){
-  var list=SVCS[ST.cat]||[];
+  var off=window.SVC_OFF||[];
+  var list=(SVCS[ST.cat]||[]).filter(function(x){return off.indexOf(x.id)<0;});
   var h='';
   for(var i=0;i<list.length;i++){
     var s=list[i];
@@ -1817,7 +1816,8 @@ function buildSvc(){
 
 function selSvcEl(el){
   var i=parseInt(el.getAttribute('data-idx'));
-  var list=SVCS[ST.cat]||[];
+  var off=window.SVC_OFF||[];
+  var list=(SVCS[ST.cat]||[]).filter(function(x){return off.indexOf(x.id)<0;});
   var s=list[i];if(!s)return;
   ST.svc=s.id;ST.baseP=s.price;ST.baseD=s.dur;
   var items=document.querySelectorAll('#svc-list .cbtn');
@@ -2519,33 +2519,33 @@ document.addEventListener('click',function(ev){
     <div class="info-box" style="margin:.6rem 0 1rem;line-height:1.6"><b>Le prix de base, c'est la coupe choisie, sur cheveux propres et démêlés.</b> Démêlage, soin, cheveux longs, options : coche-les, ils s'ajoutent et tu vois ton total avant de réserver. <b>Ce qui est demandé en plus au salon s'ajoute au prix.</b><br><span style="color:#C9A84C">Déjà client ? Ton tarif fidèle est conservé (22 € la coupe, 15 € l'enfant) : il s'affiche automatiquement quand tu entres ton numéro.</span></div>
 
     <div class="sec-lbl">Homme</div>
-    <div class="rl"><span class="rl-k">Degrade</span><span class="rl-v">25 EUR <small style="opacity:.6">· fidèle 22</small></span></div>
-    <div class="rl"><span class="rl-k">Coupe + barbe rapide</span><span class="rl-v">30 EUR</span></div>
-    <div class="rl"><span class="rl-k">Coupe + barbe complete</span><span class="rl-v">35 EUR</span></div>
-    <div class="rl"><span class="rl-k">Buzz Cut</span><span class="rl-v">25 EUR <small style="opacity:.6">· fidèle 22</small></span></div>
-    <div class="rl"><span class="rl-k">Waves</span><span class="rl-v">des 30 EUR</span></div>
-    <div class="rl"><span class="rl-k">Forfait complet</span><span class="rl-v">des 45 EUR</span></div>
-    <div class="rl"><span class="rl-k">Forfait Curly / Boucles</span><span class="rl-v">des 55 EUR</span></div>
-    <div class="rl"><span class="rl-k">Highlights / Meches</span><span class="rl-v">des 45 EUR</span></div>
-    <div class="rl"><span class="rl-k">Coloration</span><span class="rl-v">des 50 EUR</span></div>
-    <div class="rl"><span class="rl-k">Decoloration</span><span class="rl-v">des 80 EUR</span></div>
-    <div class="rl"><span class="rl-k">Tresses plaquees</span><span class="rl-v">des 30 EUR</span></div>
+    <div class="rl" data-svc="degrade"><span class="rl-k">Degrade</span><span class="rl-v">25 EUR <small style="opacity:.6">· fidèle 22</small></span></div>
+    <div class="rl" data-svc="coupe-barbe-r"><span class="rl-k">Coupe + barbe rapide</span><span class="rl-v">25 EUR</span></div>
+    <div class="rl" data-svc="coupe-barbe-c"><span class="rl-k">Coupe + barbe complete</span><span class="rl-v">28 EUR</span></div>
+    <div class="rl" data-svc="buzz"><span class="rl-k">Buzz Cut</span><span class="rl-v">25 EUR</span></div>
+    <div class="rl" data-svc="waves"><span class="rl-k">Waves</span><span class="rl-v">des 30 EUR</span></div>
+    <div class="rl" data-svc="forfait-soin"><span class="rl-k">Coupe + shampoing + coiffage</span><span class="rl-v">des 45 EUR</span></div>
+    <div class="rl" data-svc="forfait-curly"><span class="rl-k">Boucles / Curly - sur conseil</span><span class="rl-v">des 55 EUR</span></div>
+    <div class="rl" data-svc="color-caramel"><span class="rl-k">Highlights / Meches</span><span class="rl-v">des 45 EUR</span></div>
+    <div class="rl" data-svc="coloration"><span class="rl-k">Coloration</span><span class="rl-v">des 50 EUR</span></div>
+    <div class="rl" data-svc="decoloration"><span class="rl-k">Decoloration</span><span class="rl-v">des 80 EUR</span></div>
+    <div class="rl" data-svc="tresses-h"><span class="rl-k">Tresses plaquees</span><span class="rl-v">des 30 EUR</span></div>
 
     <div class="sec-lbl" style="margin-top:1.2rem">Femme</div>
-    <div class="rl"><span class="rl-k">Big Chop</span><span class="rl-v">35 EUR</span></div>
-    <div class="rl"><span class="rl-k">Buzz Cut</span><span class="rl-v">25 EUR <small style="opacity:.6">· fidèle 22</small></span></div>
-    <div class="rl"><span class="rl-k">Big Chop + shampoing + coupe</span><span class="rl-v">55 EUR</span></div>
-    <div class="rl"><span class="rl-k">Forfait complet</span><span class="rl-v">des 55 EUR</span></div>
-    <div class="rl"><span class="rl-k">Forfait Curly / Boucles</span><span class="rl-v">des 65 EUR</span></div>
-    <div class="rl"><span class="rl-k">Highlights / Meches</span><span class="rl-v">des 55 EUR</span></div>
-    <div class="rl"><span class="rl-k">Blond avec patine</span><span class="rl-v">des 85 EUR</span></div>
-    <div class="rl"><span class="rl-k">Blanc polaire / Decoloration</span><span class="rl-v">des 95 EUR</span></div>
-    <div class="rl"><span class="rl-k">Tresses plaquees</span><span class="rl-v">des 30 EUR</span></div>
+    <div class="rl" data-svc="big-chop"><span class="rl-k">Big Chop</span><span class="rl-v">30 EUR</span></div>
+    <div class="rl" data-svc="buzz-f"><span class="rl-k">Buzz Cut</span><span class="rl-v">25 EUR</span></div>
+    <div class="rl" data-svc="big-chop-s"><span class="rl-k">Big Chop + shampoing + coupe + coiffage</span><span class="rl-v">55 EUR</span></div>
+    <div class="rl" data-svc="forfait-f"><span class="rl-k">Coupe + shampoing + soin + coiffage</span><span class="rl-v">des 55 EUR</span></div>
+    <div class="rl" data-svc="forfait-f-curl"><span class="rl-k">Boucles / Curly - sur conseil</span><span class="rl-v">des 65 EUR</span></div>
+    <div class="rl" data-svc="color-f"><span class="rl-k">Highlights / Meches</span><span class="rl-v">des 55 EUR</span></div>
+    <div class="rl" data-svc="blond-patine"><span class="rl-k">Blond avec patine</span><span class="rl-v">des 85 EUR</span></div>
+    <div class="rl" data-svc="blanc-polaire-f"><span class="rl-k">Blanc polaire / Decoloration</span><span class="rl-v">des 95 EUR</span></div>
+    <div class="rl" data-svc="tresses-f"><span class="rl-k">Tresses plaquees</span><span class="rl-v">des 30 EUR</span></div>
 
     <div class="sec-lbl" style="margin-top:1.2rem">Enfant (2 à 16 ans)</div>
-    <div class="rl"><span class="rl-k">Coupe enfant</span><span class="rl-v">18 EUR <small style="opacity:.6">· fidèle 15</small></span></div>
-    <div class="rl"><span class="rl-k">Degrade enfant</span><span class="rl-v">20 EUR</span></div>
-    <div class="rl"><span class="rl-k">Tresses plaquees</span><span class="rl-v">des 30 EUR</span></div>
+    <div class="rl" data-svc="coupe-e"><span class="rl-k">Coupe enfant</span><span class="rl-v">18 EUR <small style="opacity:.6">· fidèle 15</small></span></div>
+    <div class="rl" data-svc="degrade-e"><span class="rl-k">Degrade enfant</span><span class="rl-v">20 EUR</span></div>
+    <div class="rl" data-svc="tresses-e"><span class="rl-k">Tresses plaquees</span><span class="rl-v">des 30 EUR</span></div>
 
     <div class="info-box" style="margin-top:1.2rem">Les prestations coiffure couleur, tresses et soins font l objet d un devis personnalise. Contactez-nous via WhatsApp pour plus d informations.</div>
   </div>
@@ -2687,7 +2687,7 @@ document.addEventListener('click',function(ev){
       if (r && r.data && r.data.ok) {
         AV = r.data;
         window.__bookingClosed = AV.booking_open === false;
-        if (window.__bookingClosed && isBookingScreen()) showClosed();
+        testBar();
         if (document.getElementById('cal-grid') && document.getElementById('cal-grid').innerHTML) {
           var keepDate = ST.date; renderCal();
           if (keepDate && document.getElementById('slots-wrap').style.display === 'block') renderSlots(keepDate);
@@ -2709,20 +2709,52 @@ document.addEventListener('click',function(ev){
     o.setAttribute('role', 'dialog');
     o.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(5,10,20,.88);display:flex;align-items:center;justify-content:center;padding:20px';
     o.innerHTML = '<div style="width:min(440px,100%);background:#0B1629;border:1px solid rgba(201,168,76,.55);border-radius:20px;padding:26px 20px;text-align:center;color:#F0EBE1">'
-      + '<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.5rem;line-height:1.25;margin:0 0 10px">R\u00e9servations momentan\u00e9ment ferm\u00e9es</div>'
+      + '<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.5rem;line-height:1.25;margin:0 0 10px">Merci d\u2019avoir test\u00e9 !</div>'
       + '<div style="width:90px;height:1px;background:#C9A84C;opacity:.6;margin:0 auto 14px"></div>'
-      + '<p style="margin:0 0 18px;color:#B5B9C2;font-size:.95rem;line-height:1.6">Pour prendre rendez-vous, utilise le site habituel ou \u00e9cris-nous.</p>'
-      + '<a href="https://wa.me/' + WA_NUM + '" target="_blank" rel="noopener" style="display:block;background:#1F6E4A;color:#fff;border-radius:999px;padding:14px;font-weight:600;letter-spacing:.06em;text-decoration:none">NOUS \u00c9CRIRE SUR WHATSAPP</a>'
+      + '<p style="margin:0 0 18px;color:#B5B9C2;font-size:.95rem;line-height:1.6">Les r\u00e9servations ne sont pas encore ouvertes sur ce nouveau site : ton rendez-vous <b>n\u2019a pas \u00e9t\u00e9 enregistr\u00e9</b>. R\u00e9serve sur le site habituel, et dis-moi sur WhatsApp ce que tu en as pens\u00e9.</p>'
+      + '<a href="https://wa.me/' + WA_NUM + '" target="_blank" rel="noopener" style="display:block;background:#1F6E4A;color:#fff;border-radius:999px;padding:14px;font-weight:600;letter-spacing:.06em;text-decoration:none">DONNER MON AVIS SUR WHATSAPP</a>'
       + '<button type="button" id="pnc-closed-back" style="margin-top:10px;width:100%;background:transparent;color:#F0EBE1;border:1px solid #5A6478;border-radius:999px;padding:13px;font:inherit;cursor:pointer">Retour \u00e0 l\u2019accueil</button>'
       + '</div>';
     document.body.appendChild(o);
     document.getElementById('pnc-closed-back').addEventListener('click', function () { o.remove(); _goTo(0); });
   }
   var _goTo = window.goTo;
+  // Reservations fermees = mode test : le client peut tout essayer, seule la reservation finale est refusee (aussi cote base)
+  function testBar() {
+    var old = document.querySelectorAll('.pnc-testbar');
+    if (!window.__bookingClosed) { for (var i = 0; i < old.length; i++) old[i].remove(); return; }
+    if (!isBookingScreen()) return;
+    var a = document.querySelector('.screen.active'), m = a && a.querySelector('.main');
+    if (!m || m.querySelector('.pnc-testbar')) return;
+    var b = document.createElement('div');
+    b.className = 'pnc-testbar';
+    b.style.cssText = 'max-width:480px;margin:0 auto .8rem;border:1px dashed rgba(201,168,76,.55);border-radius:12px;padding:.6rem .8rem;font-size:.82rem;line-height:1.5;color:#E8D9B0;text-align:center';
+    b.textContent = 'Mode test : tu peux tout essayer, mais la réservation n’est pas encore ouverte ici.';
+    m.insertBefore(b, m.firstChild);
+  }
   window.goTo = function (n) {
-    if (window.__bookingClosed && (n === '2b' || (typeof n === 'number' && n >= 1 && n <= 7))) { showClosed(); return; }
-    return _goTo.apply(this, arguments);
+    var r = _goTo.apply(this, arguments);
+    testBar();
+    return r;
   };
+
+  // Prestations eteintes depuis le tableau de bord
+  function applyOff() {
+    var off = window.SVC_OFF || [], rows = document.querySelectorAll('#screen-tarifs [data-svc]');
+    for (var i = 0; i < rows.length; i++) rows[i].style.display = off.indexOf(rows[i].getAttribute('data-svc')) > -1 ? 'none' : '';
+    if (ST.svc && off.indexOf(ST.svc) > -1) ST.svc = null;
+    var l = document.getElementById('svc-list');
+    if (l && l.innerHTML) buildSvc();
+  }
+  try { var c = JSON.parse(localStorage.getItem('pnc_svc_off') || 'null'); window.SVC_OFF = Array.isArray(c) ? c : ['forfait-f', 'blond-patine']; } catch (e) { window.SVC_OFF = ['forfait-f', 'blond-patine']; }
+  applyOff();
+  if (DB) DB.rpc('hub_settings', { p_salon: SALON }).then(function (r) {
+    var o = r && r.data && r.data.svc_off;
+    if (!Array.isArray(o)) return;
+    window.SVC_OFF = o.filter(function (x) { return typeof x === 'string'; });
+    try { localStorage.setItem('pnc_svc_off', JSON.stringify(window.SVC_OFF)); } catch (e) {}
+    applyOff();
+  }, function () {});
 
   // Calendrier : jours fermés ou complets grisés
   var _renderCal = renderCal;
