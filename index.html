@@ -2969,10 +2969,10 @@ document.addEventListener('click',function(ev){
   }
 
   function addCardLink(done) {
-    if (!done.length || !done[0].card) return;
+    if (!done.length) return;
     var box = document.getElementById('conf-txt'); if (!box) return;
     var old = document.getElementById('conf-card'); if (old) old.remove();
-    var url = CARD_URL + '#t=' + done[0].card;
+    var url = CARD_URL + '#carte';
     var w = document.createElement('div');
     w.id = 'conf-card';
     w.style.cssText = 'margin-top:1rem;border:1px solid rgba(201,168,76,.45);border-radius:14px;padding:.9rem;text-align:center';
@@ -2992,9 +2992,11 @@ document.addEventListener('click',function(ev){
   }
 
   // ===== Client reconnu : « Content de te revoir » + « Refaire la même » + « Déjà client ? » =====
-  var ME_KEY = 'pnc_me', ME = null, UUIDRE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  function meGet() { try { var t = localStorage.getItem(ME_KEY); return t && UUIDRE.test(t) ? t : null; } catch (e) { return null; } }
-  function meSet(t) { try { if (t && UUIDRE.test(t)) localStorage.setItem(ME_KEY, t); else localStorage.removeItem(ME_KEY); } catch (e) {} }
+  // Espace client : clé secrète propre à ce téléphone, obtenue avec le numéro + le code secret de la carte.
+  var ME_KEY = 'pnc_mek', ME = null, KEYRE = /^[0-9a-f]{64}$/i;
+  try { localStorage.removeItem('pnc_me'); } catch (e) {}
+  function meGet() { try { var t = localStorage.getItem(ME_KEY); return t && KEYRE.test(t) ? t : null; } catch (e) { return null; } }
+  function meSet(t) { try { if (t && KEYRE.test(t)) localStorage.setItem(ME_KEY, t); else localStorage.removeItem(ME_KEY); } catch (e) {} }
   function escH(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function norm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim(); }
 
@@ -3088,7 +3090,7 @@ document.addEventListener('click',function(ev){
     var a = document.getElementById('me-again'); if (a) a.onclick = function () { rebook(null); };
     document.getElementById('me-other').onclick = function () { window.__rebook = null; nouvelleReservation(); fillContact(); goTo(1); };
   }
-  function meForget() { meSet(null); ME = null; window.__rebook = null; closeEspace(); meBox(); }
+  function meForget() { var k = meGet(); if (k && DB) DB.rpc('card_logout', { p_key: k }).then(function () {}, function () {}); meSet(null); ME = null; window.__rebook = null; closeEspace(); meBox(); }
   // Page « Mon espace »
   function fmtDay(iso) { try { var d = new Date(iso); return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) + ' · ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h'); } catch (e) { return ''; } }
   function closeEspace() { var o = document.getElementById('me-espace'); if (o) o.remove(); document.documentElement.style.overflow = ''; }
@@ -3117,10 +3119,10 @@ document.addEventListener('click',function(ev){
       + '<div style="' + card + '"><div style="' + kick + '">Ma carte de fidélité</div>'
       + '<div style="font-size:1.25rem;font-weight:600;margin-bottom:.5rem">' + st + ' / ' + size + ' tampons</div>'
       + '<div style="height:8px;border-radius:6px;background:#1E2D46;overflow:hidden;margin-bottom:.8rem"><i style="display:block;height:100%;width:' + Math.round(st / size * 100) + '%;background:#C9A84C"></i></div>'
-      + '<a href="' + CARD_URL + '#t=' + encodeURIComponent(meGet() || '') + '" target="_blank" rel="noopener" style="color:#C9A84C;font-size:.9rem">Ouvrir ma carte</a></div>'
+      + '<a href="' + CARD_URL + '#carte" target="_blank" rel="noopener" style="color:#C9A84C;font-size:.9rem">Ouvrir ma carte</a></div>'
       + '<div style="' + card + '"><div style="' + kick + '">Mon prochain rendez-vous</div>'
       + (up ? '<div style="font-weight:600">' + escH(fmtDay(up.starts_at)) + '</div><div style="font-size:.88rem;color:rgba(240,235,225,.7);margin-bottom:.6rem">' + escH(up.label) + '</div>'
-            + '<a href="' + CARD_URL + '#t=' + encodeURIComponent(meGet() || '') + '" target="_blank" rel="noopener" style="color:#C9A84C;font-size:.88rem">Annuler ou déplacer</a>'
+            + '<a href="' + CARD_URL + '#carte" target="_blank" rel="noopener" style="color:#C9A84C;font-size:.88rem">Annuler ou déplacer</a>'
           : '<div style="font-size:.92rem;color:rgba(240,235,225,.6)">Aucun pour l\'instant.</div>') + '</div>'
       + '<div style="' + card + '"><div style="' + kick + '">Mon historique</div>'
       + (rows || '<div style="font-size:.92rem;color:rgba(240,235,225,.6)">Ton historique apparaîtra après ta première visite.</div>') + '</div>'
@@ -3138,7 +3140,7 @@ document.addEventListener('click',function(ev){
   }
   function loadMe(tok, thenRebook, thenEspace) {
     if (!DB || !tok) { meBox(); return; }
-    DB.rpc('site_me', { p_token: tok }).then(function (r) {
+    DB.rpc('site_me_k', { p_key: tok }).then(function (r) {
       var d = r && r.data;
       if (!d || !d.ok) { meSet(null); ME = null; meBox(); return; }
       ME = d; meSet(tok); meBox();
@@ -3146,40 +3148,66 @@ document.addEventListener('click',function(ev){
       else if (thenEspace) openEspace();
     }, function () { meBox(); });
   }
-  // « Déjà client ? » : numéro + e-mail
+  // « Déjà client ? » : numéro + code secret de la carte (le même code que la carte de fidélité)
   function openLogin() {
     if (document.getElementById('me-login')) return;
     var o = document.createElement('div'); o.id = 'me-login'; o.setAttribute('role', 'dialog');
     o.style.cssText = 'position:fixed;inset:0;z-index:9998;background:rgba(5,10,20,.88);display:flex;align-items:center;justify-content:center;padding:20px';
     var inp = 'width:100%;box-sizing:border-box;background:#0E1C33;border:1px solid #2A3B55;border-radius:12px;color:#F0EBE1;padding:13px;font:inherit;font-size:16px;margin-bottom:10px';
-    o.innerHTML = '<form id="me-login-f" style="width:min(420px,100%);background:#0B1629;border:1px solid rgba(201,168,76,.55);border-radius:20px;padding:24px 20px;color:#F0EBE1">'
+    o.innerHTML = '<form id="me-login-f" novalidate style="width:min(420px,100%);background:#0B1629;border:1px solid rgba(201,168,76,.55);border-radius:20px;padding:24px 20px;color:#F0EBE1">'
       + '<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.35rem;text-align:center;margin-bottom:6px">Déjà client ?</div>'
-      + '<p style="text-align:center;color:#B5B9C2;font-size:.9rem;margin:0 0 16px;line-height:1.5">Entre le numéro et l\'e-mail utilisés pour tes réservations.</p>'
+      + '<p style="text-align:center;color:#B5B9C2;font-size:.9rem;margin:0 0 16px;line-height:1.5">Entre ton numéro et le code secret à 4 chiffres de ta carte de fidélité.</p>'
       + '<input id="me-l-tel" type="tel" inputmode="tel" autocomplete="tel" placeholder="Ton numéro de téléphone" style="' + inp + '">'
-      + '<input id="me-l-mail" type="email" inputmode="email" autocomplete="email" placeholder="Ton adresse e-mail" style="' + inp + '">'
-      + '<p id="me-l-err" style="color:#E0614F;font-size:.85rem;min-height:1.2em;margin:0 0 8px;text-align:center"></p>'
+      + '<input id="me-l-pin" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="current-password" placeholder="Code secret (4 chiffres)" style="' + inp + 'letter-spacing:.3em;text-align:center">'
+      + '<p id="me-l-err" style="color:#E0614F;font-size:.85rem;min-height:1.2em;margin:0 0 8px;text-align:center;line-height:1.45"></p>'
       + '<button type="submit" class="btn-gold" style="width:100%">ME RETROUVER</button>'
-      + '<button type="button" id="me-l-close" style="margin-top:10px;width:100%;background:transparent;color:#F0EBE1;border:1px solid #5A6478;border-radius:999px;padding:12px;font:inherit;cursor:pointer">Annuler</button></form>';
+      + '<button type="button" id="me-l-forgot" style="margin-top:10px;width:100%;background:none;border:0;color:#C9A84C;text-decoration:underline;font:inherit;font-size:.88rem;cursor:pointer">Code oublié ? Pas encore de code ?</button>'
+      + '<button type="button" id="me-l-close" style="margin-top:6px;width:100%;background:transparent;color:#F0EBE1;border:1px solid #5A6478;border-radius:999px;padding:12px;font:inherit;cursor:pointer">Annuler</button></form>';
     document.body.appendChild(o);
+    var er = document.getElementById('me-l-err');
     document.getElementById('me-l-close').onclick = function () { o.remove(); };
+    document.getElementById('me-l-forgot').onclick = function () {
+      var t = document.getElementById('me-l-tel').value;
+      if (t.replace(/\D/g, '').length < 9) { er.textContent = 'Entre d\'abord ton numéro.'; return; }
+      if (!DB) { er.textContent = 'Connexion impossible pour le moment.'; return; }
+      DB.rpc('card_forgot', { p_salon: SALON, p_phone: t }).then(function (r) {
+        var d = (r && r.data) || {};
+        if (d.ok || d.error === 'trop') er.style.color = '#C9A84C', er.textContent = 'E-mail envoyé à ' + d.hint + ' : appuie sur le bouton de l\'e-mail pour choisir ton code (regarde aussi les spams), puis reviens ici.';
+        else if (d.error === 'pas_email') er.textContent = 'Aucune adresse e-mail n\'est liée à ce numéro. Passe au salon, on t\'aide.';
+        else if (d.error === 'inconnu') er.textContent = 'On ne trouve pas ce numéro. Fais une réservation normale.';
+        else er.textContent = 'Impossible pour le moment. Réessaie.';
+      }, function () { er.textContent = 'Connexion impossible pour le moment.'; });
+    };
     document.getElementById('me-login-f').onsubmit = function (e) {
-      e.preventDefault();
-      var t = document.getElementById('me-l-tel').value, m = document.getElementById('me-l-mail').value, er = document.getElementById('me-l-err');
-      if (t.replace(/\D/g, '').length < 9 || m.indexOf('@') < 1) { er.textContent = 'Entre ton numéro et ton e-mail.'; return; }
+      e.preventDefault(); er.style.color = '#E0614F';
+      var t = document.getElementById('me-l-tel').value, p = document.getElementById('me-l-pin').value;
+      if (t.replace(/\D/g, '').length < 9) { er.textContent = 'Entre ton numéro complet.'; return; }
+      if (!/^[0-9]{4}$/.test(p)) { er.textContent = 'Entre les 4 chiffres de ton code secret.'; return; }
       if (!DB) { er.textContent = 'Connexion impossible pour le moment.'; return; }
       er.textContent = 'Recherche…';
-      DB.rpc('site_login', { p_salon: SALON, p_phone: t, p_email: m }).then(function (r) {
-        var d = r && r.data;
-        if (!d || !d.ok) { er.textContent = 'On ne te retrouve pas avec ce numéro et cet e-mail. Fais une réservation normale : on te reconnaîtra la prochaine fois.'; return; }
-        o.remove(); loadMe(d.token, false, true);
+      DB.rpc('card_login', { p_salon: SALON, p_phone: t, p_pin: p, p_device: 'site de réservation' }).then(function (r) {
+        var d = (r && r.data) || {};
+        if (d.ok && d.key) { o.remove(); loadMe(d.key, false, true); return; }
+        if (d.error === 'inconnu') er.textContent = 'On ne trouve pas ce numéro. Fais une réservation normale : ta fiche sera créée.';
+        else if (d.need_setup && d.mailed) { er.style.color = '#C9A84C'; er.textContent = 'Tu n\'as pas encore de code. On t\'a envoyé un e-mail à ' + d.hint + ' pour le choisir (regarde aussi les spams), puis reviens ici.'; }
+        else if (d.need_setup) er.textContent = 'Tu n\'as pas encore de code. Ouvre ta carte de fidélité pour le choisir, puis reviens ici.';
+        else if (d.error === 'bloque') er.textContent = 'Trop d\'essais : réessaie plus tard, ou appuie sur « Code oublié ? ».';
+        else if (d.error === 'code') er.textContent = 'Code incorrect.' + (d.left > 0 ? ' Encore ' + d.left + ' essai' + (d.left > 1 ? 's' : '') + ' avant blocage.' : '');
+        else er.textContent = 'Impossible pour le moment. Réessaie.';
       }, function () { er.textContent = 'Connexion impossible pour le moment.'; });
     };
   }
   // Fin de réservation : on retient le client, et la carte de fidélité est proposée (oui / non)
-  window.pncRemember = function (done) { if (done && done[0] && done[0].card) { meSet(done[0].card); loadMe(done[0].card, false); } };
+  window.pncRemember = function () { if (meGet()) loadMe(meGet(), false); };
   // Arrivée depuis la carte de fidélité : #me=<carte>&go=1
-  var hm = /[#&]me=([0-9a-f-]{36})(&go=1)?/i.exec(location.hash || '');
-  if (hm) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} loadMe(hm[1], !!hm[2]); }
+  var hm = /[#&]mk=([0-9a-f]{64})(&go=1)?/i.exec(location.hash || '');
+  if (/[#&]me=/.test(location.hash || '') || hm) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
+  if (hm && DB) {
+    DB.rpc('card_magic', { p_link: hm[1], p_device: 'site de réservation' }).then(function (r) {
+      var d = r && r.data;
+      if (d && d.ok && d.key) loadMe(d.key, !!hm[2]); else loadMe(meGet(), false);
+    }, function () { loadMe(meGet(), false); });
+  }
   else loadMe(meGet(), false);
   var _goToMe = window.goTo;
   window.goTo = function (n) {
