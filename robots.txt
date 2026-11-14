@@ -1,2 +1,4 @@
 User-agent: *
 Allow: /
+
+Sitemap: https://phenoandco.com/sitemap.xml
