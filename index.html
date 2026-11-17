@@ -132,6 +132,8 @@
 </script>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=Inter:wght@400;500;600;700&family=Caveat:wght@500&display=swap" rel="stylesheet">
 <style>
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { background: #0B1629; }
@@ -384,7 +386,7 @@ body {
 .btn-out:active { border-color: rgba(201,168,76,.6); transform: scale(.98); }
 /* === Accueil v3 === */
 #s0>.page{flex:none;min-height:100vh;min-height:100dvh}
-#s0:not(.me-on) .logo{width:min(64vw,280px);max-width:none}
+#s0 .logo,#s0.me-on .logo{width:min(64vw,280px);max-width:none}
 #s0 .tagline,#s0 .sep,#s0 .hfe{display:none}
 #hv{--hn:#0B1629;--hn2:#111F36;--hn3:#162741;--hg:#C9A84C;--hg2:#E2C06A;--hc:#F3EEE4;--hi:#1A1712;--hi2:#5B5242;--ht:#F0EBE1;--ht2:rgba(240,235,225,.74);font-family:Inter,system-ui,sans-serif;color:var(--ht);text-align:left}
 #hv *{box-sizing:border-box}
@@ -3244,16 +3246,9 @@ document.addEventListener('click',function(ev){
       s0.classList.remove('me-on'); box.style.display = 'none'; if (main) main.style.display = '';
       link.textContent = window.HV_DEJA || 'Déjà client ? Retrouve tes infos'; link.onclick = openLogin; return;
     }
-    s0.classList.add('me-on');
+    // Accueil neutre pour un client reconnu : mêmes boutons que tout le monde, et un lien vers son espace
+    s0.classList.remove('me-on'); box.style.display = 'none'; if (main) main.style.display = '';
     link.textContent = 'Mon espace client'; link.onclick = openEspace;
-    var ch = lastToChoice(ME.last);
-    box.style.cssText = 'display:block;width:100%;max-width:' + (getComputedStyle(btns).maxWidth || '340px') + ';margin:0 auto .7rem;text-align:center;color:#F0EBE1';
-    box.innerHTML = '<div style="font-family:\'Playfair Display\',Georgia,serif;font-size:1.25rem;margin-bottom:.8rem">Content de te revoir' + (ME.first_name ? ', ' + escH(ME.first_name) : '') + ' !</div>'
-      + (ch ? '<button type="button" id="me-again" class="btn-gold" style="width:100%;margin-bottom:.7rem">REFAIRE : ' + escH(ch.label.toUpperCase()) + '</button>' : '')
-      + '<button type="button" id="me-other" class="' + (ch ? 'btn-out' : 'btn-gold') + '" style="width:100%">' + (ch ? 'AUTRE PRESTATION' : 'PRENDRE RENDEZ-VOUS') + '</button>';
-    if (main) main.style.display = 'none';
-    var a = document.getElementById('me-again'); if (a) a.onclick = function () { rebook(null); };
-    document.getElementById('me-other').onclick = function () { window.__rebook = null; nouvelleReservation(); fillContact(); goTo(1); };
   }
   function meForget() { var k = meGet(); if (k && DB) DB.rpc('card_logout', { p_key: k }).then(function () {}, function () {}); meSet(null); ME = null; window.__rebook = null; closeEspace(); meBox(); }
   // Page « Mon espace »
